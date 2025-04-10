@@ -14,7 +14,6 @@ class DatabaseManager:
         self.dynamic_user = None
 
     def connect(self, username: str, password: str) -> bool:
-
         logging.info(f"dang ket noi den mysql ({self.host}:{self.port}) bang user: {username}...")
         try:
             self.connection = mysql.connector.connect(
@@ -23,35 +22,54 @@ class DatabaseManager:
                 user=username,
                 password=password,
                 database=self.initial_db,
+               
             )
             if self.connection.is_connected():
                 self.dynamic_user = username
                 logging.info("-> ket noi thanh cong")
                 return True
             else:
-                logging.warning("ket noi that bai")
+                logging.warning("ket noi khong thanh cong (sau khi connect tra ve)")
+                self.connection = None 
                 return False
         except Error as e:
             logging.error(f"loi khi ket noi: {e}")
             self.connection = None
             return False
+        except Exception as e: 
+            logging.error(f"loi khong mong doi khi ket noi: {e}")
+            self.connection = None
+            return False
 
-    def execute_sql(self, sql_command: str):
-        
+
+    def execute_sql(self, sql_command: str): 
         if not self.is_connected():
-            logging.error("chua ket noi")
+            logging.error("chua ket noi, khong the thuc thi.")
             return None
+
+        cursor = None 
         try:
             cursor = self.connection.cursor()
+            logging.debug(f"Executing SQL: {sql_command[:100]}...") 
             cursor.execute(sql_command)
+            logging.debug("SQL executed successfully.")
             return cursor
         except Error as e:
-            logging.error(f"loi khi thuc thi querry: {e}")
-            return cursor 
-        except Exception as e:
-            logging.error(f"unknow error: {e}")
+            logging.error(f"loi khi thuc thi SQL: '{sql_command[:100]}...': {e}")
+            if cursor:
+                try:
+                    cursor.close()
+                except Error as ce:
+                    logging.warning(f"Loi khi dong cursor sau khi execute loi: {ce}")
             return None
-
+        except Exception as e:
+            logging.error(f"loi khong xac dinh khi thuc thi SQL: {e}")
+            if cursor:
+                try:
+                    cursor.close()
+                except Error as ce:
+                    logging.warning(f"Loi khi dong cursor sau loi khong xac dinh: {ce}")
+            return None 
 
     def commit(self):
         if self.is_connected():
@@ -79,8 +97,7 @@ class DatabaseManager:
                 self.dynamic_user = None
             except Error as e:
                 logging.error(f"khong the dong ket noi {e}")
-        else:
-             logging.debug("???")
+
 
 
     def is_connected(self) -> bool:
